@@ -1,0 +1,1301 @@
+import 'dart:convert';
+
+import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:webview_flutter/webview_flutter.dart';
+
+void main() {
+  runApp(const ChecklistApp());
+}
+
+class ChecklistApp extends StatelessWidget {
+  const ChecklistApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true,
+        colorSchemeSeed: Colors.purple,
+      ),
+      home: const HomeScreen(),
+    );
+  }
+}
+
+class Task {
+  String id;
+  String category;
+  String checklist;
+  String priority;
+
+  Task({
+    required this.id,
+    required this.category,
+    required this.checklist,
+    required this.priority,
+  });
+}
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() =>
+      _HomeScreenState();
+}
+
+class _HomeScreenState
+    extends State<HomeScreen> {
+
+  // PASTE YOUR APPS SCRIPT URL
+  final String apiUrl =
+      "https://script.google.com/macros/s/AKfycbzbrzhrWX6w7V_n8oTmrqkn0tiHxf5ZhwxbD-riZ9IXPUOqHtjQ7yokRMbQxltXalg6/exec";
+
+  int selectedIndex = 0;
+
+  List<Task> tasks = [];
+
+  List<Task> completedTasks = [];
+
+  List<Task> pendingTasks = [];
+
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchTasks();
+  }
+
+  Future<void> fetchTasks() async {
+
+    try {
+
+      final response =
+          await http.get(
+        Uri.parse(apiUrl),
+      );
+
+      if (response.statusCode ==
+          200) {
+
+        final List<dynamic> data =
+            jsonDecode(response.body);
+
+        List<Task> loadedTasks =
+            [];
+
+        for (var item in data) {
+
+          loadedTasks.add(
+
+            Task(
+
+              id:
+                  item['id']
+                      .toString(),
+
+              category:
+                  item['category']
+                      .toString(),
+
+              checklist:
+                  item['checklist']
+                      .toString(),
+
+              priority:
+                  item['priority']
+                      .toString(),
+            ),
+          );
+        }
+
+        setState(() {
+
+          tasks = loadedTasks;
+
+          isLoading = false;
+        });
+      }
+
+    } catch (e) {
+
+      print(e);
+
+      setState(() {
+
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> addTask(
+
+    String category,
+
+    String checklist,
+
+    String priority,
+
+  ) async {
+
+    try {
+
+      Task task = Task(
+
+        id:
+            DateTime.now()
+                .millisecondsSinceEpoch
+                .toString(),
+
+        category: category,
+
+        checklist: checklist,
+
+        priority: priority,
+      );
+
+      setState(() {
+
+        tasks.add(task);
+      });
+
+      await http.post(
+
+        Uri.parse(apiUrl),
+
+        headers: {
+
+          "Content-Type":
+              "application/json",
+        },
+
+        body: jsonEncode({
+
+          "category": category,
+
+          "checklist": checklist,
+
+          "priority": priority,
+        }),
+      );
+
+    } catch (e) {
+
+      print(e);
+    }
+  }
+
+  bool containsLink(
+    String text,
+  ) {
+
+    return text.contains("http://") ||
+        text.contains("https://") ||
+        text.contains("www.");
+  }
+
+  String extractLink(
+    String text,
+  ) {
+
+    RegExp exp = RegExp(
+
+      r'(https?:\/\/[^\s]+)',
+
+      caseSensitive: false,
+    );
+
+    Match? match =
+        exp.firstMatch(text);
+
+    return match?.group(0) ?? "";
+  }
+
+  Widget buildChip(
+
+    String title,
+
+    int count,
+
+    Color color,
+
+  ) {
+
+    return Container(
+
+      padding:
+          const EdgeInsets.symmetric(
+
+        horizontal: 16,
+
+        vertical: 12,
+      ),
+
+      decoration: BoxDecoration(
+
+        color:
+            color.withOpacity(0.12),
+
+        borderRadius:
+            BorderRadius.circular(20),
+      ),
+
+      child: Row(
+
+        mainAxisSize:
+            MainAxisSize.min,
+
+        children: [
+
+          Text(
+
+            title,
+
+            style: TextStyle(
+
+              color: color,
+
+              fontSize: 18,
+            ),
+          ),
+
+          const SizedBox(width: 10),
+
+          CircleAvatar(
+
+            radius: 14,
+
+            backgroundColor:
+                color,
+
+            child: Text(
+
+              "$count",
+
+              style:
+                  const TextStyle(
+
+                fontSize: 12,
+
+                color: Colors.white,
+
+                fontWeight:
+                    FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildTaskCard(
+    Task task,
+  ) {
+
+    return Padding(
+
+      padding:
+          const EdgeInsets.only(
+              bottom: 20),
+
+      child: Dismissible(
+
+        key: Key(task.id),
+
+        background: Container(
+
+          alignment:
+              Alignment.centerLeft,
+
+          padding:
+              const EdgeInsets.only(
+                  left: 35),
+
+          decoration: BoxDecoration(
+
+            color: Colors.green,
+
+            borderRadius:
+                BorderRadius.circular(
+                    32),
+          ),
+
+          child: const Text(
+
+            "COMPLETED",
+
+            style: TextStyle(
+
+              color: Colors.white,
+
+              fontSize: 32,
+
+              fontWeight:
+                  FontWeight.bold,
+            ),
+          ),
+        ),
+
+        secondaryBackground:
+            Container(
+
+          alignment:
+              Alignment.centerRight,
+
+          padding:
+              const EdgeInsets.only(
+                  right: 35),
+
+          decoration: BoxDecoration(
+
+            color: Colors.orange,
+
+            borderRadius:
+                BorderRadius.circular(
+                    32),
+          ),
+
+          child: const Text(
+
+            "DO LATER",
+
+            style: TextStyle(
+
+              color: Colors.white,
+
+              fontSize: 32,
+
+              fontWeight:
+                  FontWeight.bold,
+            ),
+          ),
+        ),
+
+        onDismissed:
+            (direction) {
+
+          if (direction ==
+              DismissDirection
+                  .startToEnd) {
+
+            setState(() {
+
+              completedTasks
+                  .add(task);
+
+              tasks.remove(task);
+            });
+
+          } else {
+
+            setState(() {
+
+              pendingTasks
+                  .add(task);
+
+              tasks.remove(task);
+            });
+          }
+        },
+
+        child: Container(
+
+          padding:
+              const EdgeInsets.all(
+                  28),
+
+          decoration: BoxDecoration(
+
+            gradient:
+                LinearGradient(
+
+              colors: [
+
+                Colors.purple
+                    .shade100,
+
+                Colors.white,
+              ],
+
+              begin:
+                  Alignment.topLeft,
+
+              end:
+                  Alignment.bottomRight,
+            ),
+
+            borderRadius:
+                BorderRadius.circular(
+                    32),
+
+            boxShadow: [
+
+              BoxShadow(
+
+                color: Colors.black
+                    .withOpacity(0.06),
+
+                blurRadius: 12,
+
+                offset:
+                    const Offset(
+                        0,
+                        5),
+              ),
+            ],
+          ),
+
+          child: Column(
+
+            crossAxisAlignment:
+                CrossAxisAlignment
+                    .start,
+
+            children: [
+
+              Container(
+
+                padding:
+                    const EdgeInsets
+                        .symmetric(
+
+                  horizontal: 18,
+
+                  vertical: 10,
+                ),
+
+                decoration:
+                    BoxDecoration(
+
+                  color:
+                      Colors.purple,
+
+                  borderRadius:
+                      BorderRadius
+                          .circular(
+                              22),
+                ),
+
+                child: Text(
+
+                  task.category,
+
+                  style:
+                      const TextStyle(
+
+                    color:
+                        Colors.white,
+
+                    fontWeight:
+                        FontWeight
+                            .bold,
+                  ),
+                ),
+              ),
+
+              const SizedBox(
+                  height: 30),
+
+              Text(
+
+                task.checklist,
+
+                style:
+                    const TextStyle(
+
+                  fontSize: 28,
+
+                  fontWeight:
+                      FontWeight.bold,
+                ),
+              ),
+
+              const SizedBox(
+                  height: 30),
+
+              Container(
+
+                padding:
+                    const EdgeInsets
+                        .symmetric(
+
+                  horizontal: 16,
+
+                  vertical: 10,
+                ),
+
+                decoration:
+                    BoxDecoration(
+
+                  gradient:
+                      const LinearGradient(
+                    colors: [
+
+                      Colors.red,
+
+                      Colors.orange,
+                    ],
+                  ),
+
+                  borderRadius:
+                      BorderRadius
+                          .circular(
+                              22),
+                ),
+
+                child: Text(
+
+                  "Priority ${task.priority}",
+
+                  style:
+                      const TextStyle(
+
+                    color:
+                        Colors.white,
+
+                    fontWeight:
+                        FontWeight
+                            .bold,
+                  ),
+                ),
+              ),
+
+              const SizedBox(
+                  height: 25),
+
+              if (
+                containsLink(
+                  task.checklist,
+                )
+              )
+
+                ElevatedButton.icon(
+
+                  onPressed: () {
+
+                    Navigator.push(
+
+                      context,
+
+                      MaterialPageRoute(
+
+                        builder:
+                            (_) => WebViewScreen(
+
+                          url:
+                              extractLink(
+                            task.checklist,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+
+                  icon:
+                      const Icon(Icons.link),
+
+                  label:
+                      const Text(
+                    "Open Link",
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget buildHomeScreen() {
+
+    return SafeArea(
+
+      child: Padding(
+
+        padding:
+            const EdgeInsets.all(
+                20),
+
+        child: Column(
+
+          children: [
+
+            Row(
+
+              mainAxisAlignment:
+                  MainAxisAlignment
+                      .spaceBetween,
+
+              children: [
+
+                const Text(
+
+                  "CHECKLIST PRO",
+
+                  style: TextStyle(
+
+                    fontSize: 34,
+
+                    fontWeight:
+                        FontWeight.bold,
+                  ),
+                ),
+
+                ElevatedButton.icon(
+
+                  onPressed: () {
+
+                    fetchTasks();
+                  },
+
+                  icon:
+                      const Icon(
+                    Icons.refresh,
+                  ),
+
+                  label:
+                      const Text(
+                    "Refresh",
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(
+                height: 25),
+
+            Row(
+
+              mainAxisAlignment:
+                  MainAxisAlignment
+                      .spaceEvenly,
+
+              children: [
+
+                buildChip(
+
+                  "Tasks",
+
+                  tasks.length,
+
+                  Colors.purple,
+                ),
+
+                buildChip(
+
+                  "Completed",
+
+                  completedTasks
+                      .length,
+
+                  Colors.green,
+                ),
+
+                buildChip(
+
+                  "Later",
+
+                  pendingTasks
+                      .length,
+
+                  Colors.orange,
+                ),
+              ],
+            ),
+
+            const SizedBox(
+                height: 30),
+
+            Expanded(
+
+              child: tasks.isEmpty
+
+                  ? const Center(
+
+                      child: Text(
+
+                        "No Tasks Found",
+
+                        style:
+                            TextStyle(
+
+                          fontSize: 28,
+
+                          fontWeight:
+                              FontWeight
+                                  .bold,
+                        ),
+                      ),
+                    )
+
+                  : ListView.builder(
+
+                      itemCount:
+                          tasks.length,
+
+                      itemBuilder:
+                          (context, index) {
+
+                        return buildTaskCard(
+                          tasks[index],
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget buildAnalyticsScreen() {
+
+    return SafeArea(
+
+      child: Padding(
+
+        padding:
+            const EdgeInsets.all(
+                20),
+
+        child: Column(
+
+          crossAxisAlignment:
+              CrossAxisAlignment
+                  .start,
+
+          children: [
+
+            const Text(
+
+              "Analytics",
+
+              style: TextStyle(
+
+                fontSize: 32,
+
+                fontWeight:
+                    FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(
+                height: 40),
+
+            SizedBox(
+
+              height: 320,
+
+              child: BarChart(
+
+                BarChartData(
+
+                  maxY: (
+                        tasks.length +
+                        completedTasks
+                            .length +
+                        pendingTasks
+                            .length +
+                        2
+                      )
+                      .toDouble(),
+
+                  titlesData:
+                      FlTitlesData(
+
+                    topTitles:
+                        const AxisTitles(
+                      sideTitles:
+                          SideTitles(
+                        showTitles:
+                            false,
+                      ),
+                    ),
+
+                    rightTitles:
+                        const AxisTitles(
+                      sideTitles:
+                          SideTitles(
+                        showTitles:
+                            false,
+                      ),
+                    ),
+
+                    bottomTitles:
+                        AxisTitles(
+
+                      sideTitles:
+                          SideTitles(
+
+                        showTitles: true,
+
+                        getTitlesWidget:
+                            (
+                          value,
+                          meta,
+                        ) {
+
+                          String text =
+                              "";
+
+                          if (value ==
+                              1) {
+                            text =
+                                "Tasks";
+                          }
+
+                          if (value ==
+                              2) {
+                            text =
+                                "Completed";
+                          }
+
+                          if (value ==
+                              3) {
+                            text =
+                                "Later";
+                          }
+
+                          return Padding(
+
+                            padding:
+                                const EdgeInsets.only(
+                                    top:
+                                        8),
+
+                            child:
+                                Text(
+                              text,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+
+                  barGroups: [
+
+                    BarChartGroupData(
+                      x: 1,
+
+                      barRods: [
+
+                        BarChartRodData(
+
+                          toY:
+                              tasks.length
+                                  .toDouble(),
+
+                          color:
+                              Colors.purple,
+
+                          width: 35,
+
+                          borderRadius:
+                              BorderRadius.circular(
+                                  12),
+                        ),
+                      ],
+                    ),
+
+                    BarChartGroupData(
+                      x: 2,
+
+                      barRods: [
+
+                        BarChartRodData(
+
+                          toY:
+                              completedTasks
+                                  .length
+                                  .toDouble(),
+
+                          color:
+                              Colors.green,
+
+                          width: 35,
+
+                          borderRadius:
+                              BorderRadius.circular(
+                                  12),
+                        ),
+                      ],
+                    ),
+
+                    BarChartGroupData(
+                      x: 3,
+
+                      barRods: [
+
+                        BarChartRodData(
+
+                          toY:
+                              pendingTasks
+                                  .length
+                                  .toDouble(),
+
+                          color:
+                              Colors.orange,
+
+                          width: 35,
+
+                          borderRadius:
+                              BorderRadius.circular(
+                                  12),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget buildSimplePage(
+    List<Task> list,
+    Color color,
+  ) {
+
+    return SafeArea(
+
+      child: ListView.builder(
+
+        padding:
+            const EdgeInsets.all(
+                20),
+
+        itemCount: list.length,
+
+        itemBuilder:
+            (context, index) {
+
+          Task task =
+              list[index];
+
+          return Container(
+
+            margin:
+                const EdgeInsets.only(
+                    bottom: 15),
+
+            padding:
+                const EdgeInsets.all(
+                    20),
+
+            decoration:
+                BoxDecoration(
+
+              color:
+                  color.withOpacity(
+                      0.1),
+
+              borderRadius:
+                  BorderRadius
+                      .circular(22),
+            ),
+
+            child: Column(
+
+              crossAxisAlignment:
+                  CrossAxisAlignment
+                      .start,
+
+              children: [
+
+                Text(
+
+                  task.category,
+
+                  style:
+                      const TextStyle(
+
+                    fontWeight:
+                        FontWeight.bold,
+
+                    fontSize: 18,
+                  ),
+                ),
+
+                const SizedBox(
+                    height: 10),
+
+                Text(
+
+                  task.checklist,
+
+                  style:
+                      const TextStyle(
+
+                    fontSize: 20,
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(
+      BuildContext context) {
+
+    List<Widget> screens = [
+
+      buildHomeScreen(),
+
+      buildAnalyticsScreen(),
+
+      buildSimplePage(
+        pendingTasks,
+        Colors.orange,
+      ),
+
+      buildSimplePage(
+        completedTasks,
+        Colors.green,
+      ),
+    ];
+
+    return Scaffold(
+
+      backgroundColor:
+          const Color(
+              0xfff7eff4),
+
+      body: isLoading
+
+          ? const Center(
+              child:
+                  CircularProgressIndicator(),
+            )
+
+          : screens[selectedIndex],
+
+      floatingActionButton:
+          FloatingActionButton(
+
+        backgroundColor:
+            Colors.purple,
+
+        child:
+            const Icon(Icons.add),
+
+        onPressed: () {
+
+          TextEditingController
+              categoryController =
+              TextEditingController();
+
+          TextEditingController
+              checklistController =
+              TextEditingController();
+
+          TextEditingController
+              priorityController =
+              TextEditingController();
+
+          showDialog(
+
+            context: context,
+
+            builder: (_) {
+
+              return AlertDialog(
+
+                title:
+                    const Text(
+                  "Add Task",
+                ),
+
+                content:
+                    SingleChildScrollView(
+
+                  child: Column(
+
+                    mainAxisSize:
+                        MainAxisSize.min,
+
+                    children: [
+
+                      TextField(
+
+                        controller:
+                            categoryController,
+
+                        decoration:
+                            const InputDecoration(
+
+                          hintText:
+                              "Category",
+                        ),
+                      ),
+
+                      const SizedBox(
+                          height: 15),
+
+                      TextField(
+
+                        controller:
+                            checklistController,
+
+                        maxLines: 5,
+
+                        decoration:
+                            const InputDecoration(
+
+                          hintText:
+                              "Checklist / Link",
+                        ),
+                      ),
+
+                      const SizedBox(
+                          height: 15),
+
+                      TextField(
+
+                        controller:
+                            priorityController,
+
+                        decoration:
+                            const InputDecoration(
+
+                          hintText:
+                              "Priority",
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                actions: [
+
+                  ElevatedButton(
+
+                    onPressed: () {
+
+                      addTask(
+
+                        categoryController
+                            .text,
+
+                        checklistController
+                            .text,
+
+                        priorityController
+                            .text,
+                      );
+
+                      Navigator.pop(
+                          context);
+                    },
+
+                    child:
+                        const Text(
+                            "Add"),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      ),
+
+      bottomNavigationBar:
+          NavigationBar(
+
+        selectedIndex:
+            selectedIndex,
+
+        onDestinationSelected:
+            (index) {
+
+          setState(() {
+
+            selectedIndex =
+                index;
+          });
+        },
+
+        destinations: const [
+
+          NavigationDestination(
+
+            icon:
+                Icon(Icons.home),
+
+            label: "Home",
+          ),
+
+          NavigationDestination(
+
+            icon:
+                Icon(Icons.bar_chart),
+
+            label:
+                "Analytics",
+          ),
+
+          NavigationDestination(
+
+            icon:
+                Icon(Icons.pending),
+
+            label: "Later",
+          ),
+
+          NavigationDestination(
+
+            icon:
+                Icon(Icons.done),
+
+            label:
+                "Completed",
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class WebViewScreen
+    extends StatelessWidget {
+
+  final String url;
+
+  const WebViewScreen({
+
+    super.key,
+
+    required this.url,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+
+    return Scaffold(
+
+      appBar: AppBar(),
+
+      body: WebViewWidget(
+
+        controller:
+            WebViewController()
+
+              ..loadRequest(
+                Uri.parse(url),
+              ),
+      ),
+    );
+  }
+}
